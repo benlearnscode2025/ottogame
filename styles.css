@@ -408,12 +408,38 @@ kbd {
   pointer-events: auto;
   cursor: pointer;
   backdrop-filter: blur(12px);
+  touch-action: manipulation;
+  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease, transform 120ms ease;
+}
+
+.dash-button.is-ready {
+  border-color: rgba(217, 255, 67, 0.8);
+  box-shadow: 0 0 0 1px rgba(217, 255, 67, 0.18), 0 0 24px rgba(217, 255, 67, 0.12);
+}
+
+.dash-button:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.dash-button:disabled {
+  cursor: default;
+  opacity: 0.58;
 }
 
 .dash-label {
   font-family: var(--mono);
   font-size: 0.55rem;
   letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dash-hint {
+  display: none;
+  color: rgba(242, 239, 229, 0.58);
+  font-family: var(--mono);
+  font-size: 0.42rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
   text-transform: uppercase;
 }
 
@@ -1210,11 +1236,21 @@ h1 em {
   .status-pill { display: none; }
   .controls-dock { display: none; }
   .dash-button {
-    right: 12px;
-    bottom: 12px;
-    bottom: max(12px, env(safe-area-inset-bottom));
-    width: 70px;
+    right: 14px;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: 14px;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    gap: 5px;
+    width: 94px;
+    min-height: 78px;
+    padding: 12px 13px;
+    border-width: 2px;
+    border-radius: 12px;
   }
+  .dash-button.is-ready { box-shadow: 0 0 0 3px rgba(217, 255, 67, 0.1), 0 0 30px rgba(217, 255, 67, 0.16); }
+  .dash-label { font-size: 0.68rem; }
+  .dash-hint { display: block; }
+  .dash-meter { height: 4px; }
 
   .pause-overlay, .result-overlay { padding: 10px; }
   .pause-panel { display: block; width: calc(100vw - 20px); min-height: 0; }

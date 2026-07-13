@@ -14,6 +14,8 @@
     pauseButton: document.getElementById("pauseButton"),
     audioButton: document.getElementById("audioButton"),
     dashButton: document.getElementById("dashButton"),
+    dashLabel: document.getElementById("dashLabel"),
+    dashHint: document.getElementById("dashHint"),
     gameChrome: document.getElementById("gameChrome"),
     score: document.getElementById("scoreText"),
     wave: document.getElementById("waveText"),
@@ -74,6 +76,11 @@
   });
 
   const keys = new Set();
+  const TOUCH_AIM_HALF_ANGLE = Math.PI * 0.28;
+  const TOUCH_LOCK_DELAY = 0.2;
+  const TOUCH_FIRE_RATE = 0.18;
+  const TOUCH_AIM_RANGE = 580;
+  const DASH_COOLDOWN = 1.35;
   const pointer = {
     x: view.w * 0.5,
     y: view.h * 0.55,
@@ -87,6 +94,7 @@
   let rafId = 0;
   let bestScore = readBestScore();
   let muted = false;
+  let inputMode = window.matchMedia && window.matchMedia("(pointer: coarse)").matches ? "touch" : "pointer";
 
   let game = createGame("ready");
 
@@ -129,6 +137,9 @@
         dashVy: 0,
         lastDx: 0,
         lastDy: -1,
+        touchTarget: null,
+        touchLock: 0,
+        touchAimEnabled: false,
       },
       bullets: [],
       enemyShots: [],
@@ -475,6 +486,9 @@
         const speed = p.speed * (game.surge > 0 ? 1.18 : 1.05);
         p.lastDx = tx / dist;
         p.lastDy = ty / dist;
+        if (isTouchInput()) {
+          p.touchAimEnabled = true;
+        }
         p.x += p.lastDx * speed * dt;
         p.y += p.lastDy * speed * dt;
       }
@@ -484,21 +498,115 @@
     p.y = clamp(p.y, p.r + 12, view.h - p.r - 12);
     p.tilt = lerp(p.tilt, dx * 0.42, 0.12);
 
-    const rate = game.surge > 0 ? 0.07 : 0.118;
-    if (p.cooldown <= 0) {
+    updateTouchAim(dt);
+    const rate = game.surge > 0 ? (isTouchInput() ? 0.1 : 0.07) : (isTouchInput() ? TOUCH_FIRE_RATE : 0.118);
+    const canFire = !isTouchInput() || (p.touchTarget && p.touchLock >= TOUCH_LOCK_DELAY);
+    if (!canFire) {
+      p.shooting = false;
+    }
+    if (p.cooldown <= 0 && canFire) {
       firePlayerBullets();
       p.cooldown = rate;
     }
   }
 
-  function triggerDash() {
+  function isTouchInput() {
+    return inputMode === "touch";
+  }
+
+  function setInputMode(mode) {
+    inputMode = mode;
+    document.body.dataset.input = mode;
+  }
+
+  function updateTouchAim(dt) {
     const p = game.player;
-    if (game.mode !== "playing" || p.dashCooldown > 0 || p.dashTime > 0) {
+    if (!isTouchInput() || !p.touchAimEnabled) {
+      p.touchTarget = null;
+      p.touchLock = 0;
       return;
     }
 
+    const target = findTouchAimTarget();
+    if (target !== p.touchTarget) {
+      p.touchTarget = target;
+      p.touchLock = 0;
+    } else if (target) {
+      p.touchLock = Math.min(TOUCH_LOCK_DELAY, p.touchLock + dt);
+    } else {
+      p.touchLock = 0;
+    }
+  }
+
+  function findTouchAimTarget() {
+    const p = game.player;
+    const facingMagnitude = Math.max(0.001, Math.hypot(p.lastDx, p.lastDy));
+    const facingX = p.lastDx / facingMagnitude;
+    const facingY = p.lastDy / facingMagnitude;
+    const minAlignment = Math.cos(TOUCH_AIM_HALF_ANGLE);
+    let best = null;
+    let bestScore = Infinity;
+
+    for (const enemy of game.enemies) {
+      const toX = enemy.x - p.x;
+      const toY = enemy.y - p.y;
+      const distance = Math.max(1, Math.hypot(toX, toY));
+      if (distance > TOUCH_AIM_RANGE) {
+        continue;
+      }
+      const alignment = (toX / distance) * facingX + (toY / distance) * facingY;
+      if (alignment < minAlignment) {
+        continue;
+      }
+      const score = distance * (1 + (1 - alignment) * 2.4);
+      if (score < bestScore) {
+        best = enemy;
+        bestScore = score;
+      }
+    }
+
+    return best;
+  }
+
+  function triggerDash() {
+    const p = game.player;
+    if (game.mode !== "playing" || p.dashCooldown > 0 || p.dashTime > 0) {
+      return false;
+    }
+
+    const dashVector = getDashVector();
+    const dx = dashVector.x;
+    const dy = dashVector.y;
+
+    p.lastDx = dx;
+    p.lastDy = dy;
+    p.dashVx = dx * 1050;
+    p.dashVy = dy * 1050;
+    p.dashTime = 0.18;
+    p.dashCooldown = DASH_COOLDOWN;
+    p.invulnerable = Math.max(p.invulnerable, 0.26);
+    game.dashes += 1;
+    game.shake = Math.max(game.shake, 5);
+    burst(p.x, p.y, 24, palette.mint, 230, 0.36);
+    tone(190, 0.12, "sawtooth", 0.026, 300);
+    updateHud();
+    return true;
+  }
+
+  function getDashVector() {
+    const p = game.player;
     let dx = p.lastDx;
     let dy = p.lastDy;
+
+    if (isTouchInput() && pointer.down) {
+      const touchX = pointer.x - p.x;
+      const touchY = pointer.y - p.y;
+      const touchMagnitude = Math.hypot(touchX, touchY);
+      if (touchMagnitude > 12) {
+        return { x: touchX / touchMagnitude, y: touchY / touchMagnitude };
+      }
+    }
+
     let keyX = 0;
     let keyY = 0;
     if (keys.has("arrowleft") || keys.has("a")) keyX -= 1;
@@ -511,17 +619,8 @@
       dy = keyY / magnitude;
     }
 
-    p.lastDx = dx;
-    p.lastDy = dy;
-    p.dashVx = dx * 1050;
-    p.dashVy = dy * 1050;
-    p.dashTime = 0.18;
-    p.dashCooldown = 1.35;
-    p.invulnerable = Math.max(p.invulnerable, 0.26);
-    game.dashes += 1;
-    game.shake = Math.max(game.shake, 5);
-    burst(p.x, p.y, 24, palette.mint, 230, 0.36);
-    tone(190, 0.12, "sawtooth", 0.026, 300);
+    const magnitude = Math.max(0.001, Math.hypot(dx, dy));
+    return { x: dx / magnitude, y: dy / magnitude };
   }
 
   function firePlayerBullets() {
@@ -582,6 +681,13 @@
 
   function getAimAngle() {
     const p = game.player;
+    if (isTouchInput()) {
+      if (p.touchTarget) {
+        return Math.atan2(p.touchTarget.y - p.y, p.touchTarget.x - p.x);
+      }
+      return Math.atan2(p.lastDy, p.lastDx);
+    }
+
     if (pointer.active) {
       return Math.atan2(pointer.y - p.y, pointer.x - p.x);
     }
@@ -1065,6 +1171,9 @@
     }
     drawParticles();
     drawAnnouncements();
+    if (game.mode === "playing" && isTouchInput()) {
+      drawTouchAimGuide();
+    }
     if (game.mode === "playing" && pointer.active) {
       drawAimReticle();
     }
@@ -1528,6 +1637,37 @@
     ctx.restore();
   }
 
+  function drawTouchAimGuide() {
+    const p = game.player;
+    const direction = Math.atan2(p.lastDy, p.lastDx);
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.strokeStyle = "rgba(217, 255, 67, 0.34)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 7]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 72, direction - TOUCH_AIM_HALF_ANGLE, direction + TOUCH_AIM_HALF_ANGLE);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    if (!p.touchTarget) {
+      return;
+    }
+
+    const lockRatio = clamp(p.touchLock / TOUCH_LOCK_DELAY, 0, 1);
+    const target = p.touchTarget;
+    const radius = target.r + 12;
+    ctx.save();
+    ctx.translate(target.x, target.y);
+    ctx.strokeStyle = lockRatio >= 1 ? palette.mint : "rgba(255, 214, 90, 0.78)";
+    ctx.lineWidth = 2 + lockRatio;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.08, lockRatio));
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function drawVignette() {
     const gradient = ctx.createRadialGradient(
       view.w * 0.5,
@@ -1564,7 +1704,7 @@
     ui.chain.textContent = "×" + game.combo.toFixed(1);
     const shieldRatio = clamp(game.player.shield / game.player.maxShield, 0, 1);
     const vibeRatio = game.surge > 0 ? clamp(game.surge / 5.4, 0, 1) : clamp(game.vibe / 100, 0, 1);
-    const dashRatio = 1 - clamp(game.player.dashCooldown / 1.35, 0, 1);
+    const dashRatio = 1 - clamp(game.player.dashCooldown / DASH_COOLDOWN, 0, 1);
     ui.shieldFill.style.transform = "scaleX(" + shieldRatio + ")";
     ui.shieldValue.textContent = String(Math.round(game.player.shield));
     ui.vibeFill.style.transform = "scaleX(" + vibeRatio + ")";
@@ -1572,7 +1712,12 @@
     ui.vibeLabel.textContent = game.surge > 0 ? "Overdrive" : "Comfort";
     ui.vibeFill.parentElement.classList.toggle("is-live", game.surge > 0);
     ui.dashFill.style.transform = "scaleX(" + dashRatio + ")";
-    ui.dashButton.disabled = game.player.dashCooldown > 0 || game.mode !== "playing";
+    const dashReady = game.player.dashCooldown <= 0 && game.mode === "playing";
+    ui.dashButton.disabled = !dashReady;
+    ui.dashButton.classList.toggle("is-ready", dashReady);
+    ui.dashLabel.textContent = dashReady ? "Dash" : game.player.dashCooldown > 0 ? game.player.dashCooldown.toFixed(1) + "s" : "Dash";
+    ui.dashHint.textContent = dashReady ? (isTouchInput() ? "Hold + tap" : "Space") : "Recharging";
+    ui.dashButton.setAttribute("aria-label", dashReady ? "Dash ready" : "Dash recharging");
 
     const remaining = game.spawnLeft + game.enemies.length;
     if (game.waveBreak > 0) {
@@ -1660,7 +1805,13 @@
     const rect = canvas.getBoundingClientRect();
     pointer.x = clamp(event.clientX - rect.left, 0, view.w);
     pointer.y = clamp(event.clientY - rect.top, 0, view.h);
-    pointer.active = event.pointerType !== "touch";
+    if (event.pointerType === "touch") {
+      setInputMode("touch");
+      pointer.active = false;
+    } else {
+      setInputMode("pointer");
+      pointer.active = true;
+    }
   }
 
   ui.startButton.addEventListener("click", startGame);
@@ -1684,11 +1835,20 @@
     }
   });
   ui.dashButton.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
     event.stopPropagation();
-    triggerDash();
+    if (event.pointerType === "touch") {
+      setInputMode("touch");
+    }
+    if (triggerDash() && event.isTrusted && event.pointerType === "touch" && navigator.vibrate) {
+      navigator.vibrate(18);
+    }
   });
 
   window.addEventListener("keydown", (event) => {
+    if (isTouchInput()) {
+      setInputMode("keyboard");
+    }
     const key = event.key.toLowerCase();
     keys.add(key);
 
@@ -1771,6 +1931,7 @@
   }
 
   resizeCanvas();
+  document.body.dataset.input = inputMode;
   if (new URLSearchParams(window.location.search).get("play") === "1") {
     startGame({ silent: true });
   } else {

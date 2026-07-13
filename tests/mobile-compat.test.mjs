@@ -16,7 +16,7 @@ assert.match(shellRule, /height:\s*100vh/, "the app shell needs a 100vh fallback
 assert.match(css, /@supports\s*\(height:\s*100dvh\)/, "dynamic viewport units must be applied as a progressive enhancement");
 assert.match(game, /function roundedRectPath\(/, "canvas drawing needs a roundRect compatibility helper");
 assert.doesNotMatch(game, /\bctx\.roundRect\(/, "canvas drawing must not call roundRect without a fallback");
-assert.match(game, /event\.pointerType\s*!==\s*["']touch["']/, "touch movement should preserve automatic enemy aiming");
+assert.match(game, /event\.pointerType\s*===\s*["']touch["'][\s\S]+pointer\.active\s*=\s*false/, "touch movement should enter the deliberate touch-aiming path");
 assert.match(html, /class="mobile-preview"/, "the mobile start screen must show the character and threats before play");
 
 console.log("Mobile compatibility verification passed.");
