@@ -1152,8 +1152,7 @@
     drawFramedSample(w * 0.84, wallH * 0.46, 82, 54, palette.sage);
 
     ctx.fillStyle = "rgba(168, 164, 255, 0.07)";
-    ctx.beginPath();
-    ctx.roundRect(w * 0.46, wallH * 0.3, w * 0.08, wallH * 0.44, 8);
+    roundedRectPath(ctx, w * 0.46, wallH * 0.3, w * 0.08, wallH * 0.44, 8);
     ctx.fill();
     ctx.strokeStyle = "rgba(242, 239, 229, 0.24)";
     ctx.lineWidth = 2;
@@ -1333,8 +1332,7 @@
       ctx.fillStyle = "#fff";
       ctx.strokeStyle = "#000";
       ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.roundRect(-length * 0.48, -thickness * 0.5, length, thickness, thickness * 0.45);
+      roundedRectPath(ctx, -length * 0.48, -thickness * 0.5, length, thickness, thickness * 0.45);
       ctx.fill();
       ctx.stroke();
 
@@ -1636,11 +1634,33 @@
     return rgba(r, g, b, alpha);
   }
 
+  function roundedRectPath(context, x, y, width, height, radius) {
+    context.beginPath();
+    if (typeof context.roundRect === "function") {
+      context.roundRect(x, y, width, height, radius);
+      return;
+    }
+
+    const safeRadius = Math.min(Math.max(0, radius), Math.abs(width) / 2, Math.abs(height) / 2);
+    const right = x + width;
+    const bottom = y + height;
+    context.moveTo(x + safeRadius, y);
+    context.lineTo(right - safeRadius, y);
+    context.arcTo(right, y, right, y + safeRadius, safeRadius);
+    context.lineTo(right, bottom - safeRadius);
+    context.arcTo(right, bottom, right - safeRadius, bottom, safeRadius);
+    context.lineTo(x + safeRadius, bottom);
+    context.arcTo(x, bottom, x, bottom - safeRadius, safeRadius);
+    context.lineTo(x, y + safeRadius);
+    context.arcTo(x, y, x + safeRadius, y, safeRadius);
+    context.closePath();
+  }
+
   function setPointerFromEvent(event) {
     const rect = canvas.getBoundingClientRect();
     pointer.x = clamp(event.clientX - rect.left, 0, view.w);
     pointer.y = clamp(event.clientY - rect.top, 0, view.h);
-    pointer.active = true;
+    pointer.active = event.pointerType !== "touch";
   }
 
   ui.startButton.addEventListener("click", startGame);
@@ -1708,7 +1728,13 @@
     pointer.down = true;
     pointer.id = event.pointerId;
     setPointerFromEvent(event);
-    canvas.setPointerCapture(event.pointerId);
+    if (canvas.setPointerCapture) {
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Some older mobile browsers expose pointer capture but reject canvas capture.
+      }
+    }
   });
 
   canvas.addEventListener("pointermove", (event) => {
@@ -1719,7 +1745,13 @@
     if (pointer.id === event.pointerId) {
       pointer.down = false;
       pointer.id = null;
-      canvas.releasePointerCapture(event.pointerId);
+      if (canvas.releasePointerCapture) {
+        try {
+          canvas.releasePointerCapture(event.pointerId);
+        } catch (error) {
+          // The browser may already have released capture during a viewport gesture.
+        }
+      }
     }
   });
 
@@ -1728,9 +1760,15 @@
     pointer.id = null;
   });
 
-  const observer = new ResizeObserver(resizeCanvas);
-  observer.observe(canvas);
+  let observer = null;
+  if ("ResizeObserver" in window) {
+    observer = new ResizeObserver(resizeCanvas);
+    observer.observe(canvas);
+  }
   window.addEventListener("resize", resizeCanvas);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", resizeCanvas);
+  }
 
   resizeCanvas();
   if (new URLSearchParams(window.location.search).get("play") === "1") {
@@ -1742,5 +1780,13 @@
   render();
   rafId = requestAnimationFrame(frame);
 
-  window.addEventListener("beforeunload", () => cancelAnimationFrame(rafId));
+  window.addEventListener("beforeunload", () => {
+    cancelAnimationFrame(rafId);
+    if (observer) {
+      observer.disconnect();
+    }
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener("resize", resizeCanvas);
+    }
+  });
 })();
