@@ -1,7 +1,7 @@
 # Local game-development workspace
 godot/
 tools/
-body-front.png
+/body-front.png
 run-godot-game.bat
 
 # Generated and local-only files
