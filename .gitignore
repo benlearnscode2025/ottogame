@@ -1,0 +1,16 @@
+# Local game-development workspace
+godot/
+tools/
+body-front.png
+run-godot-game.bat
+
+# Generated and local-only files
+.gstack/
+__pycache__/
+*.py[cod]
+.vercel/
+.DS_Store
+Thumbs.db
+
+# Unused source-art variants kept in the local workspace
+assets/head-*.png

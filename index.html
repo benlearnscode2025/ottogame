@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#171813">
+    <meta name="description" content="Home Stretch — a fast, tactile showroom survival game.">
+    <title>Home Stretch — Night Shift</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand" aria-label="Home Stretch">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="brand-copy">HOME <b>STRETCH</b></span>
+          <span class="edition">Night shift</span>
+        </div>
+
+        <div class="hud" aria-live="polite">
+          <div class="hud-stat score-stat">
+            <span>Score</span>
+            <strong id="scoreText">000000</strong>
+          </div>
+
+          <div class="vitals" aria-label="Character status">
+            <div class="vital-row">
+              <span class="vital-label">Floor plan</span>
+              <div class="meter shield" aria-label="Shield"><span id="shieldFill"></span></div>
+              <b id="shieldValue">100</b>
+            </div>
+            <div class="vital-row">
+              <span id="vibeLabel" class="vital-label">Comfort</span>
+              <div class="meter vibe" aria-label="Comfort"><span id="vibeFill"></span></div>
+              <b id="vibeValue">0%</b>
+            </div>
+          </div>
+
+          <div class="hud-stat compact">
+            <span>Room</span>
+            <strong id="waveText">01</strong>
+          </div>
+          <div class="hud-stat compact chain-stat">
+            <span>Chain</span>
+            <strong id="chainText">×1.0</strong>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <button id="audioButton" class="icon-button audio-button" type="button" aria-label="Mute sound" aria-pressed="false">
+            <span aria-hidden="true">◖</span>
+          </button>
+          <button id="pauseButton" class="icon-button" type="button" aria-label="Pause" disabled>
+            <span class="pause-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <main class="game-stage">
+        <canvas id="gameCanvas" aria-label="Home Stretch game field"></canvas>
+
+        <div id="gameChrome" class="game-chrome" aria-hidden="true">
+          <div class="objective-card">
+            <span class="objective-index">Current brief</span>
+            <strong id="objectiveText">Clear the showroom</strong>
+            <span id="threatText" class="objective-detail">10 hazards inbound</span>
+          </div>
+          <div id="statusPill" class="status-pill"><i></i><span>Shift active</span></div>
+          <div class="controls-dock">
+            <span><kbd>WASD</kbd> move</span>
+            <span><kbd>Mouse</kbd> aim</span>
+            <span><kbd>Space</kbd> dash</span>
+            <span><kbd>P</kbd> pause</span>
+          </div>
+          <button id="dashButton" class="dash-button" type="button" aria-label="Dash">
+            <span class="dash-label">Dash</span>
+            <span class="dash-meter"><i id="dashFill"></i></span>
+          </button>
+        </div>
+
+        <section id="startScreen" class="overlay start-overlay">
+          <div class="marquee marquee-one" aria-hidden="true">FLOOR IT · FLOOR IT · FLOOR IT ·</div>
+          <div class="marquee marquee-two" aria-hidden="true">COZY UNDER PRESSURE · COZY UNDER PRESSURE ·</div>
+
+          <div class="start-panel">
+            <div class="start-copy">
+              <div class="eyebrow"><span>Otto &amp; Sons</span><i></i><span>After hours</span></div>
+              <h1><span>HOME</span><em>STRETCH</em></h1>
+              <p class="tagline">The showroom is closed.<br>The hazards didn’t get the memo.</p>
+              <p class="mission-copy">Move fast, build your chain, and push the comfort meter into overdrive. One room at a time.</p>
+
+              <div class="start-actions">
+                <button id="startButton" class="primary-action" type="button">
+                  <span>Clock in</span><b aria-hidden="true">↗</b>
+                </button>
+                <span class="enter-hint"><kbd>Enter</kbd> to start</span>
+              </div>
+
+              <div class="control-list" aria-label="Controls">
+                <span><b>01</b> Move <kbd>WASD</kbd></span>
+                <span><b>02</b> Aim <kbd>Mouse</kbd></span>
+                <span><b>03</b> Dash <kbd>Space</kbd></span>
+              </div>
+            </div>
+
+            <div class="start-visual" aria-hidden="true">
+              <div class="visual-orbit orbit-one"></div>
+              <div class="visual-orbit orbit-two"></div>
+              <div class="hero-stamp">Employee<br>of the<br>minute</div>
+              <span class="hero-number">01</span>
+              <div class="hero-image-wrap">
+                <div class="hero-shadow"></div>
+                <img class="hero-character" src="./assets/body-front.png" alt="">
+              </div>
+              <div class="threat-rack">
+                <span class="threat-title">Tonight’s problems</span>
+                <div class="threats">
+                  <span><img src="./assets/enemy-carpet-roll.png" alt=""><b>Roll</b></span>
+                  <span><img src="./assets/enemy-tack-strip.png" alt=""><b>Tack</b></span>
+                  <span><img src="./assets/enemy-carpet-crate.png" alt=""><b>Crate</b></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="pauseScreen" class="overlay pause-overlay" hidden>
+          <div class="pause-panel">
+            <div class="pause-image"><img src="./assets/body-three-quarter.png" alt="" aria-hidden="true"></div>
+            <div>
+              <p class="kicker">Shift paused</p>
+              <h2>Quick<br>breather.</h2>
+              <p>The showroom will wait. Probably.</p>
+              <button id="resumeButton" class="primary-action compact-action" type="button">
+                <span>Back to work</span><b aria-hidden="true">↗</b>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section id="gameOverScreen" class="overlay result-overlay" hidden>
+          <div class="result-panel">
+            <div class="result-heading">
+              <p class="kicker">Shift report / <span id="resultDate">Tonight</span></p>
+              <h2>That’s a<br><em>wrap.</em></h2>
+              <div id="newBestBadge" class="new-best" hidden>New house record</div>
+            </div>
+
+            <div class="result-score">
+              <span>Final score</span>
+              <strong id="finalScoreText">000000</strong>
+              <div class="best-line"><span>House record</span><b id="bestScoreText">000000</b></div>
+            </div>
+
+            <div class="grade-card">
+              <span>Shift grade</span>
+              <strong id="finalGrade">A</strong>
+              <i>COZY<br>CERTIFIED</i>
+            </div>
+
+            <div class="result-stats">
+              <div><span>Rooms</span><strong id="finalRooms">01</strong></div>
+              <div><span>Hazards cleared</span><strong id="finalCleared">00</strong></div>
+              <div><span>Best chain</span><strong id="finalChain">×1.0</strong></div>
+              <div><span>On the clock</span><strong id="finalTime">00:00</strong></div>
+            </div>
+
+            <div class="result-actions">
+              <button id="replayButton" class="primary-action" type="button">
+                <span>Run it back</span><b aria-hidden="true">↗</b>
+              </button>
+              <span>Better, faster, cozier.</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./src/game.js"></script>
+  </body>
+</html>
